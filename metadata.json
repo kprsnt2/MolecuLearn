@@ -1,0 +1,5 @@
+{
+  "name": "MolecuLearn - AI Drug Suggestion",
+  "description": "A next-generation pharmaceutical research tool powered by Gemini AI to discover safer drug alternatives and structural analogs.",
+  "requestFramePermissions": []
+}
