@@ -4,7 +4,7 @@ import { AnalysisResult, Language } from "../types";
 export const analyzeDrugCandidates = async (query: string, language: Language = 'en'): Promise<AnalysisResult> => {
   // CRITICAL: We explicitly look for 'API_KEY' in uppercase. 
   // In Vercel, the Environment Variable name must be exactly 'API_KEY'.
-  const apiKey = process.env.API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   
   if (!apiKey) {
     console.error("CRITICAL ERROR: process.env.API_KEY is undefined.");
