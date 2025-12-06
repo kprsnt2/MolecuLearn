@@ -25,10 +25,24 @@ const App: React.FC = () => {
     try {
       const data = await analyzeDrugCandidates(searchQuery, targetLanguage);
       setResult(data);
-    } catch (err) {
-      setError(targetLanguage === 'en' 
-        ? "Failed to analyze drug data. Please check your API key and try again." 
-        : "ఔషధ డేటాను విశ్లేషించడంలో విఫలమైంది. దయచేసి మీ API కీని తనిఖీ చేసి మళ్లీ ప్రయత్నించండి.");
+    } catch (err: any) {
+      // Improved error logging for production debugging
+      console.error("Analysis Error:", err);
+      
+      const errorMessage = targetLanguage === 'en' 
+        ? "Failed to analyze drug data." 
+        : "ఔషధ డేటాను విశ్లేషించడంలో విఫలమైంది.";
+      
+      const helpText = targetLanguage === 'en'
+        ? "Please check your API key and try again."
+        : "దయచేసి మీ API కీని తనిఖీ చేసి మళ్లీ ప్రయత్నించండి.";
+
+      // If it's a specific configuration error, show it
+      if (err.message && (err.message.includes("API Key") || err.message.includes("Missing"))) {
+        setError(`${errorMessage} (${err.message})`);
+      } else {
+        setError(`${errorMessage} ${helpText}`);
+      }
     } finally {
       setLoading(false);
     }
