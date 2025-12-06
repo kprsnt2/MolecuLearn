@@ -2,6 +2,7 @@ import React from 'react';
 import { DrugCandidate, Language } from '../types';
 import { ShieldCheck, AlertTriangle, Zap, Microscope, Beaker } from 'lucide-react';
 import { translations } from '../translations';
+import MoleculeViewer from './MoleculeViewer';
 
 interface DrugCardProps {
   candidate: DrugCandidate;
@@ -31,7 +32,7 @@ const DrugCard: React.FC<DrugCardProps> = ({ candidate, isBestOption, language }
     <div className={`relative bg-slate-800 rounded-xl p-6 border-l-4 ${getBorderColor()} shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col h-full group`}>
       
       {isBestOption && (
-        <div className="absolute top-0 right-0 -mt-3 -mr-3 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg flex items-center gap-1 animate-pulse">
+        <div className="absolute top-0 right-0 -mt-3 -mr-3 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg flex items-center gap-1 animate-pulse z-10">
           <ShieldCheck size={12} />
           {t.topPick}
         </div>
@@ -63,6 +64,11 @@ const DrugCard: React.FC<DrugCardProps> = ({ candidate, isBestOption, language }
                 </div>
             </div>
         </div>
+      </div>
+
+      {/* Chemical Structure Visualization */}
+      <div className="mb-4">
+        <MoleculeViewer smiles={candidate.smiles} />
       </div>
 
       <div className="space-y-4 flex-grow">

@@ -26,10 +26,19 @@ const App: React.FC = () => {
     try {
       const data = await analyzeDrugCandidates(searchQuery, targetLanguage);
       setResult(data);
-    } catch (err) {
-      setError(targetLanguage === 'en' 
-        ? "Failed to analyze drug data. Please check your API key and try again." 
-        : "ఔషధ డేటాను విశ్లేషించడంలో విఫలమైంది. దయచేసి మీ API కీని తనిఖీ చేసి మళ్లీ ప్రయత్నించండి.");
+    } catch (err: any) {
+      console.error(err);
+      // Construct a helpful error message
+      let errorMessage = "Unknown error occurred.";
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      
+      const userMessage = targetLanguage === 'en' 
+        ? `Analysis failed: ${errorMessage}`
+        : `విశ్లేషణ విఫలమైంది: ${errorMessage}`;
+        
+      setError(userMessage);
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,7 @@ export interface DrugCandidate {
   type: 'Original' | 'Existing Alternative' | 'Novel Analog' | 'Natural Compound';
   chemicalFormula: string;
   molecularWeight: string;
+  smiles: string; // SMILES string for chemical structure
   mechanismOfAction: string;
   safetyProfile: string; // Text description
   sideEffects: string[];

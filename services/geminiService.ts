@@ -2,9 +2,18 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { AnalysisResult, Language } from "../types";
 
 export const analyzeDrugCandidates = async (query: string, language: Language = 'en'): Promise<AnalysisResult> => {
-  // Initialize the API client inside the function to avoid top-level crashes if process is undefined during initial load
-  // CRITICAL: The API key is injected via process.env.API_KEY
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // CRITICAL: We explicitly look for 'API_KEY' in uppercase. 
+  // In Vercel, the Environment Variable name must be exactly 'API_KEY'.
+  const apiKey = process.env.API_KEY;
+  
+  if (!apiKey) {
+    console.error("CRITICAL ERROR: process.env.API_KEY is undefined.");
+    console.log("Current process.env:", process.env);
+    throw new Error("System Configuration Error: API_KEY is missing. Please check your Vercel Environment Variables.");
+  }
+
+  // Initialize the API client
+  const ai = new GoogleGenAI({ apiKey });
   
   const modelId = "gemini-2.5-flash"; // Using 2.5 Flash for reliable JSON schema adherence and speed
 
@@ -33,6 +42,8 @@ export const analyzeDrugCandidates = async (query: string, language: Language = 
     For the 'efficacyScore' and 'safetyScore', estimate a value between 0 and 100 based on clinical literature or chemical properties.
     Ensure 'improvementNotes' highlights specifically why the alternative might be better (e.g., "Lack of hepatotoxic N-acetyl-p-benzoquinone imine metabolite").
     
+    IMPORTANT: Provide a valid SMILES string (Simplified Molecular Input Line Entry System) for 'smiles'. For the Novel Analog, construct a theoretically valid SMILES string representing your proposed modification.
+
     REMINDER: Output content in ${language === 'te' ? 'TELUGU' : 'ENGLISH'}.
   `;
 
@@ -57,6 +68,7 @@ export const analyzeDrugCandidates = async (query: string, language: Language = 
                   type: { type: Type.STRING, enum: ['Original', 'Existing Alternative', 'Novel Analog', 'Natural Compound'] },
                   chemicalFormula: { type: Type.STRING },
                   molecularWeight: { type: Type.STRING },
+                  smiles: { type: Type.STRING, description: "Valid SMILES string representation of the molecule structure" },
                   mechanismOfAction: { type: Type.STRING },
                   safetyProfile: { type: Type.STRING },
                   sideEffects: { 
@@ -67,7 +79,7 @@ export const analyzeDrugCandidates = async (query: string, language: Language = 
                   safetyScore: { type: Type.NUMBER },
                   improvementNotes: { type: Type.STRING }
                 },
-                required: ['name', 'type', 'chemicalFormula', 'mechanismOfAction', 'safetyScore', 'efficacyScore', 'improvementNotes', 'sideEffects']
+                required: ['name', 'type', 'chemicalFormula', 'smiles', 'mechanismOfAction', 'safetyScore', 'efficacyScore', 'improvementNotes', 'sideEffects']
               }
             }
           },
