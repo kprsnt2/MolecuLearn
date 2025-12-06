@@ -1,11 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AnalysisResult, Language } from "../types";
 
-// Initialize the API client
-// CRITICAL: The API key is injected via process.env.API_KEY
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export const analyzeDrugCandidates = async (query: string, language: Language = 'en'): Promise<AnalysisResult> => {
+  // Initialize the API client inside the function to avoid top-level crashes if process is undefined during initial load
+  // CRITICAL: The API key is injected via process.env.API_KEY
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
   const modelId = "gemini-2.5-flash"; // Using 2.5 Flash for reliable JSON schema adherence and speed
 
   // Stronger language instruction
