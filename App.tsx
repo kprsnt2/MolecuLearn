@@ -16,25 +16,29 @@ const App: React.FC = () => {
 
   const t = translations[language];
 
-  const handleSearch = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
-
+  // Refactored analysis function to be reusable for search and language switch
+  const performAnalysis = useCallback(async (searchQuery: string, targetLanguage: Language) => {
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
-      const data = await analyzeDrugCandidates(query, language);
+      const data = await analyzeDrugCandidates(searchQuery, targetLanguage);
       setResult(data);
     } catch (err) {
-      setError(language === 'en' 
+      setError(targetLanguage === 'en' 
         ? "Failed to analyze drug data. Please check your API key and try again." 
         : "ఔషధ డేటాను విశ్లేషించడంలో విఫలమైంది. దయచేసి మీ API కీని తనిఖీ చేసి మళ్లీ ప్రయత్నించండి.");
     } finally {
       setLoading(false);
     }
-  }, [query, language]);
+  }, []);
+
+  const handleSearch = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim()) return;
+    await performAnalysis(query, language);
+  }, [query, language, performAnalysis]);
 
   const resetHome = useCallback(() => {
     setQuery('');
@@ -45,9 +49,13 @@ const App: React.FC = () => {
   }, []);
 
   const toggleLanguage = () => {
-    setLanguage(prev => prev === 'en' ? 'te' : 'en');
-    // Optional: Reset result if changing language to ensure content matches
-    // setResult(null); 
+    const newLanguage = language === 'en' ? 'te' : 'en';
+    setLanguage(newLanguage);
+    
+    // If there is an active result, re-fetch it in the new language
+    if (result && query) {
+      performAnalysis(query, newLanguage);
+    }
   };
 
   const bestCandidateIndex = result 
