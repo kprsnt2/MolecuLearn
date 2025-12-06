@@ -8,6 +8,7 @@ import { translations } from './translations';
 
 const App: React.FC = () => {
   const [query, setQuery] = useState('');
+  const [lastSearchedQuery, setLastSearchedQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,24 +26,10 @@ const App: React.FC = () => {
     try {
       const data = await analyzeDrugCandidates(searchQuery, targetLanguage);
       setResult(data);
-    } catch (err: any) {
-      // Improved error logging for production debugging
-      console.error("Analysis Error:", err);
-      
-      const errorMessage = targetLanguage === 'en' 
-        ? "Failed to analyze drug data." 
-        : "ఔషధ డేటాను విశ్లేషించడంలో విఫలమైంది.";
-      
-      const helpText = targetLanguage === 'en'
-        ? "Please check your API key and try again."
-        : "దయచేసి మీ API కీని తనిఖీ చేసి మళ్లీ ప్రయత్నించండి.";
-
-      // If it's a specific configuration error, show it
-      if (err.message && (err.message.includes("API Key") || err.message.includes("Missing"))) {
-        setError(`${errorMessage} (${err.message})`);
-      } else {
-        setError(`${errorMessage} ${helpText}`);
-      }
+    } catch (err) {
+      setError(targetLanguage === 'en' 
+        ? "Failed to analyze drug data. Please check your API key and try again." 
+        : "ఔషధ డేటాను విశ్లేషించడంలో విఫలమైంది. దయచేసి మీ API కీని తనిఖీ చేసి మళ్లీ ప్రయత్నించండి.");
     } finally {
       setLoading(false);
     }
@@ -51,11 +38,13 @@ const App: React.FC = () => {
   const handleSearch = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
+    setLastSearchedQuery(query);
     await performAnalysis(query, language);
   }, [query, language, performAnalysis]);
 
   const resetHome = useCallback(() => {
     setQuery('');
+    setLastSearchedQuery('');
     setResult(null);
     setError(null);
     setLoading(false);
@@ -66,9 +55,10 @@ const App: React.FC = () => {
     const newLanguage = language === 'en' ? 'te' : 'en';
     setLanguage(newLanguage);
     
-    // If there is an active result, re-fetch it in the new language
-    if (result && query) {
-      performAnalysis(query, newLanguage);
+    // Use lastSearchedQuery to ensure we reload the data for what is currently shown, 
+    // even if the user changed the input box text.
+    if (result && lastSearchedQuery) {
+      performAnalysis(lastSearchedQuery, newLanguage);
     }
   };
 
@@ -156,7 +146,12 @@ const App: React.FC = () => {
                 {t.suggestions.map((suggestion: string) => (
                   <button 
                     key={suggestion}
-                    onClick={() => { setQuery(suggestion); }}
+                    onClick={() => { 
+                        setQuery(suggestion);
+                        // Optional: Auto search on click? For now just fill input.
+                        // setLastSearchedQuery(suggestion); 
+                        // performAnalysis(suggestion, language);
+                    }}
                     className="px-3 py-1 bg-slate-900 border border-slate-800 rounded-full text-sm text-slate-400 hover:text-emerald-400 hover:border-emerald-500/50 transition-all"
                   >
                     {suggestion}

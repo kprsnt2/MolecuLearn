@@ -1,35 +1,17 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AnalysisResult, Language } from "../types";
 
-// NOTE: We do not initialize 'ai' here globally. 
-// Initializing globally causes the app to crash (White/Blue screen) on load 
-// if the environment variables are not yet ready or if 'process' is undefined in the browser.
+// Initialize the API client
+// CRITICAL: The API key is injected via process.env.API_KEY
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const analyzeDrugCandidates = async (query: string, language: Language = 'en'): Promise<AnalysisResult> => {
-  // 1. Safe access to API Key to prevent ReferenceError: process is not defined
-  let apiKey = "";
-  try {
-    // Check if process exists (standard Node/CRA/Webpack env)
-    if (typeof process !== 'undefined' && process.env) {
-      apiKey = process.env.API_KEY || "";
-    } 
-  } catch (e) {
-    console.warn("Could not access process.env", e);
-  }
-
-  // 2. Throw a clear error if key is missing, rather than crashing
-  if (!apiKey) {
-    throw new Error("API Key is missing. Please set the 'API_KEY' environment variable in your Vercel project settings.");
-  }
-
-  // 3. Initialize the client lazily
-  const ai = new GoogleGenAI({ apiKey });
-  
   const modelId = "gemini-2.5-flash"; // Using 2.5 Flash for reliable JSON schema adherence and speed
 
+  // Stronger language instruction
   const languageInstruction = language === 'te' 
-    ? "Translate all descriptive text values (targetDrug, name, mechanismOfAction, safetyProfile, sideEffects, improvementNotes) into Telugu language. Keep property keys in English."
-    : "Keep all text in English.";
+    ? "CRITICAL: The user speaks Telugu. You MUST translate ALL descriptive text values (mechanismOfAction, safetyProfile, sideEffects, improvementNotes) into Telugu. The field 'targetDrug' and 'name' can remain in English or be transliterated if a common Telugu name exists, but explanations must be in Telugu. Property keys must remain in English."
+    : "Output in English.";
 
   const prompt = `
     You are an expert computational medicinal chemist and pharmacologist. 
@@ -50,6 +32,8 @@ export const analyzeDrugCandidates = async (query: string, language: Language = 
 
     For the 'efficacyScore' and 'safetyScore', estimate a value between 0 and 100 based on clinical literature or chemical properties.
     Ensure 'improvementNotes' highlights specifically why the alternative might be better (e.g., "Lack of hepatotoxic N-acetyl-p-benzoquinone imine metabolite").
+    
+    REMINDER: Output content in ${language === 'te' ? 'TELUGU' : 'ENGLISH'}.
   `;
 
   try {
