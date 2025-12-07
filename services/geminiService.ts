@@ -2,14 +2,13 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { AnalysisResult, Language } from "../types";
 
 export const analyzeDrugCandidates = async (query: string, language: Language = 'en'): Promise<AnalysisResult> => {
-  // CRITICAL: We explicitly look for 'API_KEY' in uppercase. 
-  // In Vercel, the Environment Variable name must be exactly 'API_KEY'.
+  // CRITICAL: We explicitly look for 'GEMINI_API_KEY' in uppercase. 
   const apiKey = process.env.GEMINI_API_KEY;
   
   if (!apiKey) {
-    console.error("CRITICAL ERROR: process.env.API_KEY is undefined.");
+    console.error("CRITICAL ERROR: process.env.GEMINI_API_KEY is undefined.");
     console.log("Current process.env:", process.env);
-    throw new Error("System Configuration Error: API_KEY is missing. Please check your Vercel Environment Variables.");
+    throw new Error("System Configuration Error: GEMINI_API_KEY is missing. Please check your Environment Variables.");
   }
 
   // Initialize the API client

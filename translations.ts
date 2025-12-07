@@ -28,7 +28,9 @@ export const translations: Record<Language, any> = {
     chartTitle: "Efficacy vs. Safety Landscape",
     topPick: "TOP SAFETY PICK",
     more: "more",
-    suggestions: ['Headache', 'Ibuprofen', 'Insomnia', 'Omeprazole']
+    suggestions: ['Headache', 'Ibuprofen', 'Insomnia', 'Omeprazole'],
+    share: "Share",
+    copied: "Copied!"
   },
   te: {
     appTitle: "MolecuLearn",
@@ -57,6 +59,8 @@ export const translations: Record<Language, any> = {
     chartTitle: "సమర్థత vs. భద్రత ల్యాండ్‌స్కేప్",
     topPick: "ఉత్తమ ఎంపిక",
     more: "మరిన్ని",
-    suggestions: ['తలనొప్పి', 'ఐబుప్రోఫెన్', 'నిద్రలేమి', 'ఒమెప్రజోల్']
+    suggestions: ['తలనొప్పి', 'ఐబుప్రోఫెన్', 'నిద్రలేమి', 'ఒమెప్రజోల్'],
+    share: "భాగస్వామ్యం",
+    copied: "కాపీ చేయబడింది!"
   }
 };

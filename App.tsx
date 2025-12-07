@@ -64,8 +64,9 @@ const App: React.FC = () => {
     const newLanguage = language === 'en' ? 'te' : 'en';
     setLanguage(newLanguage);
     
-    // Use lastSearchedQuery to ensure we reload the data for what is currently shown, 
-    // even if the user changed the input box text.
+    // Note: Since the button is now restricted to the home page (no results),
+    // we don't strictly need to re-trigger analysis here, but we keep the logic
+    // in case requirements change or for edge cases where result might be present but hidden.
     if (result && lastSearchedQuery) {
       performAnalysis(lastSearchedQuery, newLanguage);
     }
@@ -99,13 +100,16 @@ const App: React.FC = () => {
                   <span>{t.tagline}</span>
                </div>
                
-               <button 
-                onClick={toggleLanguage}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
-               >
-                 <Languages size={16} />
-                 <span className="text-sm font-semibold">{language === 'en' ? 'English' : 'తెలుగు'}</span>
-               </button>
+               {/* Language Toggle - Only visible when no results are shown (Home Page) */}
+               {!result && (
+                 <button 
+                  onClick={toggleLanguage}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
+                 >
+                   <Languages size={16} />
+                   <span className="text-sm font-semibold">{language === 'en' ? 'English' : 'తెలుగు'}</span>
+                 </button>
+               )}
             </div>
           </div>
         </div>

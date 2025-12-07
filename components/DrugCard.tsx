@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DrugCandidate, Language } from '../types';
-import { ShieldCheck, AlertTriangle, Zap, Microscope, Beaker } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Zap, Microscope, Beaker, Share2, Check } from 'lucide-react';
 import { translations } from '../translations';
 import MoleculeViewer from './MoleculeViewer';
 
@@ -13,6 +13,7 @@ interface DrugCardProps {
 const DrugCard: React.FC<DrugCardProps> = ({ candidate, isBestOption, language }) => {
   const isOriginal = candidate.type === 'Original';
   const t = translations[language];
+  const [copied, setCopied] = useState(false);
 
   // Dynamic border color based on safety score
   const getBorderColor = () => {
@@ -28,6 +29,29 @@ const DrugCard: React.FC<DrugCardProps> = ({ candidate, isBestOption, language }
     return map[type] || type;
   }
 
+  const handleShare = async () => {
+    const textToShare = `🧪 MolecuLearn Discovery\n\nName: ${candidate.name}\nType: ${candidate.type}\nSafety Score: ${candidate.safetyScore}/100\nEfficacy Score: ${candidate.efficacyScore}/100\n\nMechanism: ${candidate.mechanismOfAction}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `MolecuLearn: ${candidate.name}`,
+          text: textToShare,
+        });
+      } catch (err) {
+        console.debug('Share cancelled');
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(textToShare);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy', err);
+      }
+    }
+  };
+
   return (
     <div className={`relative bg-slate-800 rounded-xl p-6 border-l-4 ${getBorderColor()} shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col h-full group`}>
       
@@ -39,21 +63,23 @@ const DrugCard: React.FC<DrugCardProps> = ({ candidate, isBestOption, language }
       )}
 
       <div className="flex justify-between items-start mb-4">
-        <div>
+        <div className="flex-1 pr-4">
           <span className={`text-xs font-semibold uppercase tracking-wider px-2 py-1 rounded-md ${
             isOriginal ? 'bg-slate-700 text-slate-300' : 'bg-indigo-900/50 text-indigo-300'
           }`}>
             {getTranslatedType(candidate.type)}
           </span>
-          <h3 className="text-xl font-bold text-white mt-2 group-hover:text-emerald-400 transition-colors">
+          <h3 className="text-xl font-bold text-white mt-2 group-hover:text-emerald-400 transition-colors break-words">
             {candidate.name}
           </h3>
-          <div className="flex items-center gap-2 text-slate-400 text-sm mt-1 font-mono">
-            <Beaker size={14} />
-            {candidate.chemicalFormula} • {candidate.molecularWeight}
+          <div className="flex items-center gap-2 text-slate-400 text-sm mt-1 font-mono flex-wrap">
+            <Beaker size={14} className="shrink-0" />
+            <span className="truncate max-w-[150px]" title={candidate.chemicalFormula}>{candidate.chemicalFormula}</span> 
+            <span className="shrink-0">• {candidate.molecularWeight}</span>
           </div>
         </div>
-        <div className="text-right">
+        <div className="text-right flex flex-col items-end gap-2 shrink-0">
+             {/* Safety Score Block */}
             <div className="flex flex-col items-end">
                 <span className="text-xs text-slate-400 mb-1">{t.safetyScore}</span>
                 <div className={`text-2xl font-bold ${
@@ -63,6 +89,16 @@ const DrugCard: React.FC<DrugCardProps> = ({ candidate, isBestOption, language }
                     {candidate.safetyScore}/100
                 </div>
             </div>
+            
+            {/* Share Button */}
+            <button 
+              onClick={handleShare}
+              className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-emerald-400 transition-colors bg-slate-900/50 px-2 py-1.5 rounded-md border border-slate-700/50 hover:border-emerald-500/30"
+              title={t.share}
+            >
+              {copied ? <Check size={12} /> : <Share2 size={12} />}
+              {copied ? t.copied : t.share}
+            </button>
         </div>
       </div>
 
