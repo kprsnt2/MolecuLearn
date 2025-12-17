@@ -1,49 +1,45 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import { AnalysisResult, Language } from "../types";
+import { AnalysisResult, Language, UserProfile } from "../types";
 
-export const analyzeDrugCandidates = async (query: string, language: Language = 'en'): Promise<AnalysisResult> => {
-  // CRITICAL: We explicitly look for 'GEMINI_API_KEY' in uppercase. 
-  const apiKey = process.env.GEMINI_API_KEY;
-  
-  if (!apiKey) {
-    console.error("CRITICAL ERROR: process.env.GEMINI_API_KEY is undefined.");
-    console.log("Current process.env:", process.env);
-    throw new Error("System Configuration Error: GEMINI_API_KEY is missing. Please check your Environment Variables.");
-  }
+export const analyzeDrugCandidates = async (
+  query: string, 
+  language: Language = 'en',
+  profile: UserProfile | null = null
+): Promise<AnalysisResult> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const modelId = "gemini-3-pro-preview";
 
-  // Initialize the API client
-  const ai = new GoogleGenAI({ apiKey });
-  
-  const modelId = "gemini-2.5-flash"; // Using 2.5 Flash for reliable JSON schema adherence and speed
+  const profileContext = profile ? `
+    USER PROFILE:
+    - Age: ${profile.age}
+    - Conditions: ${profile.conditions.join(', ')}
+    - Allergies: ${profile.allergies.join(', ')}
+    - Current Meds: ${profile.currentMedications.join(', ')}
+  ` : "No specific profile.";
 
-  // Stronger language instruction
   const languageInstruction = language === 'te' 
-    ? "CRITICAL: The user speaks Telugu. You MUST translate ALL descriptive text values (mechanismOfAction, safetyProfile, sideEffects, improvementNotes) into Telugu. The field 'targetDrug' and 'name' can remain in English or be transliterated if a common Telugu name exists, but explanations must be in Telugu. Property keys must remain in English."
-    : "Output in English.";
+    ? "Translate everything into simple Telugu that an average person can understand."
+    : "Use simple English (Grade 6 level). Avoid all complex medical jargon.";
 
   const prompt = `
-    You are an expert computational medicinal chemist and pharmacologist. 
-    The user is searching for drug alternatives based on the query: "${query}".
+    ACT AS: A friendly Family Doctor who explains things simply.
+    QUERY: "${query}"
     
+    ${profileContext}
     ${languageInstruction}
 
-    Your task is to:
-    1. Analyze the query.
-       - If the query is a **Symptom** or **Condition** (e.g., "Headache", "High Blood Pressure"), identify the most common "Standard of Care" drug for it (e.g., "Ibuprofen" or "Lisinopril") and treat that as the "Original Drug".
-       - If the query is a **Drug Name**, use it directly as the "Original Drug".
-       
-    2. Propose 4 distinct candidates based on that identified "Original Drug":
-       - Candidate 1: The Original Drug itself (for baseline comparison).
-       - Candidate 2: An existing FDA-approved alternative drug with a similar mechanism but potentially better safety.
-       - Candidate 3: A Theoretical Novel Analog (invent a plausible chemical name or derivative) that modifies the structure to reduce toxicity (e.g., removing a toxic metabolite group).
-       - Candidate 4: A Natural Compound or dietary supplement that exhibits similar (albeit likely weaker) activity.
+    CRITICAL RULES FOR LANGUAGE:
+    - Instead of "Hepatotoxicity", say "Liver damage".
+    - Instead of "Contraindicated", say "Dangerous for you".
+    - Instead of "Metabolite", say "Waste product".
+    - Instead of "Hypertension", say "High Blood Pressure".
+    - Make the 'reason' and 'recommendation' very clear and scary if it's a 'Critical' warning, so the user knows to stop.
 
-    For the 'efficacyScore' and 'safetyScore', estimate a value between 0 and 100 based on clinical literature or chemical properties.
-    Ensure 'improvementNotes' highlights specifically why the alternative might be better (e.g., "Lack of hepatotoxic N-acetyl-p-benzoquinone imine metabolite").
-    
-    IMPORTANT: Provide a valid SMILES string (Simplified Molecular Input Line Entry System) for 'smiles'. For the Novel Analog, construct a theoretically valid SMILES string representing your proposed modification.
+    SAFETY SCORE RULE:
+    - 'safetyScore' MUST be a whole number between 0 and 100. (e.g., 95, not 0.95).
 
-    REMINDER: Output content in ${language === 'te' ? 'TELUGU' : 'ENGLISH'}.
+    The response MUST be valid JSON.
   `;
 
   try {
@@ -51,49 +47,56 @@ export const analyzeDrugCandidates = async (query: string, language: Language = 
       model: modelId,
       contents: prompt,
       config: {
-        systemInstruction: "You are a helpful, precise scientific assistant for drug discovery.",
-        temperature: 0.3, // Low temperature for factual/consistent results
+        systemInstruction: "You are a personalized medical safety assistant. Use extremely simple language. Explain medical risks like you are talking to a worried family member, not a scientist. Ensure all safety scores are whole numbers out of 100.",
+        temperature: 0.1,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            targetDrug: { type: Type.STRING, description: "The name of the identified Original Drug (even if user entered a symptom)" },
+            targetDrug: { type: Type.STRING },
+            profileCheckSummary: { type: Type.STRING, description: "A very simple summary: Is this safe for them or not?" },
             candidates: {
               type: Type.ARRAY,
               items: {
                 type: Type.OBJECT,
                 properties: {
                   name: { type: Type.STRING },
-                  type: { type: Type.STRING, enum: ['Original', 'Existing Alternative', 'Novel Analog', 'Natural Compound'] },
+                  type: { type: Type.STRING },
                   chemicalFormula: { type: Type.STRING },
                   molecularWeight: { type: Type.STRING },
-                  smiles: { type: Type.STRING, description: "Valid SMILES string representation of the molecule structure" },
-                  mechanismOfAction: { type: Type.STRING },
-                  safetyProfile: { type: Type.STRING },
-                  sideEffects: { 
-                    type: Type.ARRAY, 
-                    items: { type: Type.STRING } 
-                  },
+                  smiles: { type: Type.STRING },
+                  mechanismOfAction: { type: Type.STRING, description: "How it works in simple words." },
+                  sideEffects: { type: Type.ARRAY, items: { type: Type.STRING } },
                   efficacyScore: { type: Type.NUMBER },
-                  safetyScore: { type: Type.NUMBER },
-                  improvementNotes: { type: Type.STRING }
+                  safetyScore: { type: Type.NUMBER, description: "A whole number from 0 to 100." },
+                  improvementNotes: { type: Type.STRING },
+                  personalSafetyWarnings: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        severity: { type: Type.STRING, enum: ['Critical', 'Moderate', 'Low'] },
+                        reason: { type: Type.STRING, description: "WHY it is dangerous in simple words." },
+                        recommendation: { type: Type.STRING, description: "WHAT to do now in simple words." }
+                      }
+                    }
+                  }
                 },
-                required: ['name', 'type', 'chemicalFormula', 'smiles', 'mechanismOfAction', 'safetyScore', 'efficacyScore', 'improvementNotes', 'sideEffects']
+                required: ['name', 'type', 'smiles', 'personalSafetyWarnings', 'safetyScore']
               }
             }
           },
-          required: ['targetDrug', 'candidates']
+          required: ['targetDrug', 'candidates', 'profileCheckSummary']
         }
       }
     });
 
     const text = response.text;
     if (!text) throw new Error("No response from Gemini");
-
     return JSON.parse(text) as AnalysisResult;
 
   } catch (error) {
-    console.error("Gemini Analysis Failed:", error);
+    console.error("Analysis Failed:", error);
     throw error;
   }
 };

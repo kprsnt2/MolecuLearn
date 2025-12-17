@@ -1,20 +1,40 @@
+
+export type Condition = 'Diabetes' | 'High Blood Pressure' | 'Asthma' | 'Kidney Disease' | 'Heart Disease' | 'Liver Issues' | 'None';
+
+export interface UserProfile {
+  id: string;
+  age: number;
+  weight: number;
+  conditions: Condition[];
+  allergies: string[];
+  currentMedications: string[];
+  lastUpdated: string;
+}
+
+export interface SafetyWarning {
+  severity: 'Critical' | 'Moderate' | 'Low';
+  reason: string;
+  recommendation: string;
+}
+
 export interface DrugCandidate {
   name: string;
   type: 'Original' | 'Existing Alternative' | 'Novel Analog' | 'Natural Compound';
   chemicalFormula: string;
   molecularWeight: string;
-  smiles: string; // SMILES string for chemical structure
+  smiles: string;
   mechanismOfAction: string;
-  safetyProfile: string; // Text description
   sideEffects: string[];
-  efficacyScore: number; // 0-100
-  safetyScore: number; // 0-100
-  improvementNotes: string; // Why is this better?
+  efficacyScore: number;
+  safetyScore: number;
+  improvementNotes: string;
+  personalSafetyWarnings: SafetyWarning[]; // Personalized for user
 }
 
 export interface AnalysisResult {
   targetDrug: string;
   candidates: DrugCandidate[];
+  profileCheckSummary: string;
 }
 
 export enum ViewMode {

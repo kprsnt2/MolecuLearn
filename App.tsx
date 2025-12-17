@@ -1,81 +1,79 @@
-import React, { useState, useCallback } from 'react';
-import { Search, Dna, Activity, RotateCcw, Info, Languages } from 'lucide-react';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, Dna, Activity, RotateCcw, Info, Languages, User, Save, ShieldCheck, Heart, AlertCircle, Trash2 } from 'lucide-react';
 import { analyzeDrugCandidates } from './services/geminiService';
-import { AnalysisResult, ViewMode, Language } from './types';
+import { AnalysisResult, ViewMode, Language, UserProfile, Condition } from './types';
 import DrugCard from './components/DrugCard';
 import ComparisonChart from './components/ComparisonChart';
 import { translations } from './translations';
 
+const CONDITIONS: Condition[] = ['Diabetes', 'High Blood Pressure', 'Asthma', 'Kidney Disease', 'Heart Disease', 'Liver Issues'];
+
 const App: React.FC = () => {
   const [query, setQuery] = useState('');
-  const [lastSearchedQuery, setLastSearchedQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.GRID);
   const [language, setLanguage] = useState<Language>('en');
+  
+  // Profile State
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(() => {
+    const saved = localStorage.getItem('moleculearn_profile');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  // Profile Edit State
+  const [editProfile, setEditProfile] = useState<UserProfile>(profile || {
+    id: 'user_1',
+    age: 30,
+    weight: 70,
+    conditions: [],
+    allergies: [],
+    currentMedications: [],
+    lastUpdated: new Date().toISOString()
+  });
 
   const t = translations[language];
 
-  // Refactored analysis function to be reusable for search and language switch
-  const performAnalysis = useCallback(async (searchQuery: string, targetLanguage: Language) => {
+  useEffect(() => {
+    if (profile) {
+      localStorage.setItem('moleculearn_profile', JSON.stringify(profile));
+    } else {
+      localStorage.removeItem('moleculearn_profile');
+    }
+  }, [profile]);
+
+  const saveProfile = () => {
+    setProfile(editProfile);
+    setIsProfileOpen(false);
+  };
+
+  const handleSearch = useCallback(async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!query.trim()) return;
+    
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
-      const data = await analyzeDrugCandidates(searchQuery, targetLanguage);
+      const data = await analyzeDrugCandidates(query, language, profile);
       setResult(data);
     } catch (err: any) {
-      console.error(err);
-      // Construct a helpful error message
-      let errorMessage = "Unknown error occurred.";
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      }
-      
-      const userMessage = targetLanguage === 'en' 
-        ? `Analysis failed: ${errorMessage}`
-        : `విశ్లేషణ విఫలమైంది: ${errorMessage}`;
-        
-      setError(userMessage);
+      setError(err.message || "Analysis failed.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [query, language, profile]);
 
-  const handleSearch = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
-    setLastSearchedQuery(query);
-    await performAnalysis(query, language);
-  }, [query, language, performAnalysis]);
-
-  const resetHome = useCallback(() => {
-    setQuery('');
-    setLastSearchedQuery('');
-    setResult(null);
-    setError(null);
-    setLoading(false);
-    setViewMode(ViewMode.GRID);
-  }, []);
-
-  const toggleLanguage = () => {
-    const newLanguage = language === 'en' ? 'te' : 'en';
-    setLanguage(newLanguage);
-    
-    // Note: Since the button is now restricted to the home page (no results),
-    // we don't strictly need to re-trigger analysis here, but we keep the logic
-    // in case requirements change or for edge cases where result might be present but hidden.
-    if (result && lastSearchedQuery) {
-      performAnalysis(lastSearchedQuery, newLanguage);
-    }
+  const toggleCondition = (c: Condition) => {
+    const next = editProfile.conditions.includes(c)
+      ? editProfile.conditions.filter(item => item !== c)
+      : [...editProfile.conditions, c];
+    setEditProfile({ ...editProfile, conditions: next });
   };
-
-  const bestCandidateIndex = result 
-    ? result.candidates.reduce((bestIdx, current, idx, arr) => 
-        current.safetyScore > arr[bestIdx].safetyScore ? idx : bestIdx, 0)
-    : -1;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 selection:bg-emerald-500 selection:text-white pb-20">
@@ -84,183 +82,196 @@ const App: React.FC = () => {
       <nav className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <button 
-              onClick={resetHome} 
-              className="flex items-center gap-2 hover:opacity-90 transition-opacity focus:outline-none"
-            >
+            <button onClick={() => {setResult(null); setQuery('');}} className="flex items-center gap-2">
               <div className="bg-gradient-to-tr from-emerald-500 to-blue-500 p-2 rounded-lg">
-                <Dna size={24} className="text-white" />
+                <Dna size={20} className="text-white" />
               </div>
-              <span className="font-bold text-xl tracking-tight">Molecu<span className="text-emerald-400">Learn</span></span>
+              <span className="font-bold text-lg tracking-tight">MolecuLearn<span className="text-emerald-400">Pro</span></span>
             </button>
             
-            <div className="flex items-center gap-4">
-               <div className="hidden md:flex items-center gap-1 text-emerald-500 text-sm font-medium">
-                  <Activity size={16} />
-                  <span>{t.tagline}</span>
-               </div>
-               
-               {/* Language Toggle - Only visible when no results are shown (Home Page) */}
+            <div className="flex items-center gap-3">
                {!result && (
-                 <button 
-                  onClick={toggleLanguage}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
-                 >
-                   <Languages size={16} />
-                   <span className="text-sm font-semibold">{language === 'en' ? 'English' : 'తెలుగు'}</span>
+                 <button onClick={() => setLanguage(l => l === 'en' ? 'te' : 'en')} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400">
+                    <Languages size={20} />
                  </button>
                )}
+               <button 
+                 onClick={() => setIsProfileOpen(true)}
+                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${
+                   profile ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-300'
+                 }`}
+               >
+                 <User size={18} />
+                 <span className="text-sm font-bold">{profile ? 'Patient Profile' : 'Setup Profile'}</span>
+               </button>
             </div>
           </div>
         </div>
       </nav>
 
+      {/* Profile Modal */}
+      {isProfileOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-fade-in">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Heart className="text-emerald-400" /> Patient Digital Twin
+              </h2>
+              {profile && (
+                 <button onClick={() => {setProfile(null); setIsProfileOpen(false);}} className="text-slate-500 hover:text-red-400">
+                    <Trash2 size={18} />
+                 </button>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Age</label>
+                  <input 
+                    type="number" 
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 mt-1 text-white focus:ring-1 focus:ring-emerald-500 outline-none" 
+                    value={editProfile.age}
+                    onChange={(e) => setEditProfile({...editProfile, age: parseInt(e.target.value)})}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Weight (kg)</label>
+                  <input 
+                    type="number" 
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 mt-1 text-white focus:ring-1 focus:ring-emerald-500 outline-none" 
+                    value={editProfile.weight}
+                    onChange={(e) => setEditProfile({...editProfile, weight: parseInt(e.target.value)})}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Chronic Conditions</label>
+                <div className="flex flex-wrap gap-2">
+                  {CONDITIONS.map(c => (
+                    <button 
+                      key={c}
+                      onClick={() => toggleCondition(c)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                        editProfile.conditions.includes(c) ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-400'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase">Known Allergies (comma separated)</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Penicillin, Sulfa"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 mt-1 text-white focus:ring-1 focus:ring-emerald-500 outline-none" 
+                  value={editProfile.allergies.join(', ')}
+                  onChange={(e) => setEditProfile({...editProfile, allergies: e.target.value.split(',').map(s => s.trim())})}
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 flex gap-3">
+              <button 
+                onClick={saveProfile}
+                className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
+              >
+                <Save size={18} /> Save & Authenticate
+              </button>
+              <button 
+                onClick={() => setIsProfileOpen(false)}
+                className="px-6 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
         
-        {/* Hero / Search Section */}
+        {/* Main Dashboard Hero */}
         <div className={`transition-all duration-500 ${result ? 'mb-12' : 'min-h-[60vh] flex flex-col justify-center items-center text-center'}`}>
           {!result && !loading && (
-            <div className="mb-8 space-y-4 max-w-2xl mx-auto animate-fade-in">
-              <h1 className="text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-blue-400 to-indigo-400 pb-2">
-                {t.heroTitle}
+            <div className="mb-10 space-y-4 max-w-3xl mx-auto">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-emerald-400 text-xs font-bold uppercase tracking-widest mb-4">
+                <ShieldCheck size={14} /> Personalized Medical Safety Auditor
+              </div>
+              <h1 className="text-5xl md:text-7xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-500 leading-tight">
+                Safety First.<br/>Search Precision.
               </h1>
-              <p className="text-lg text-slate-400">
-                {t.heroSubtitle}
+              <p className="text-lg text-slate-400 max-w-xl mx-auto">
+                Validate prescriptions against your personal medical history using clinical-grade AI.
               </p>
             </div>
           )}
 
-          <div className="w-full max-w-2xl relative z-10">
+          <div className="w-full max-w-2xl relative">
             <form onSubmit={handleSearch} className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className={`h-6 w-6 transition-colors ${loading ? 'text-emerald-500 animate-pulse' : 'text-slate-500 group-focus-within:text-emerald-400'}`} />
+                <Search className={`h-6 w-6 ${loading ? 'text-emerald-500 animate-spin' : 'text-slate-600'}`} />
               </div>
               <input
                 type="text"
-                className="block w-full pl-12 pr-4 py-4 bg-slate-900 border border-slate-700 rounded-2xl leading-5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all shadow-xl text-lg"
-                placeholder={t.placeholder}
+                className="block w-full pl-12 pr-4 py-5 bg-slate-900 border border-slate-700 rounded-3xl text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 shadow-2xl text-xl font-medium"
+                placeholder="Enter medicine (e.g. Lisinopril) or Symptom..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                disabled={loading}
               />
               <button 
                 type="submit"
                 disabled={loading || !query}
-                className="absolute right-2 top-2 bottom-2 bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white px-6 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-slate-700 hover:border-emerald-500"
+                className="absolute right-3 top-2.5 bottom-2.5 bg-emerald-500 hover:bg-emerald-600 text-white px-8 rounded-2xl font-black text-sm uppercase transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-30"
               >
-                {loading ? t.analyzingBtn : t.analyzeBtn}
+                {loading ? 'Auditing...' : 'Analyze'}
               </button>
             </form>
-            
-            {/* Quick Suggestions */}
-            {!result && !loading && (
-              <div className="mt-6 flex flex-wrap justify-center gap-3">
-                <span className="text-slate-500 text-sm py-1">{t.tryLabel}</span>
-                {t.suggestions.map((suggestion: string) => (
-                  <button 
-                    key={suggestion}
-                    onClick={() => { 
-                        setQuery(suggestion);
-                        // Optional: Auto search on click? For now just fill input.
-                        // setLastSearchedQuery(suggestion); 
-                        // performAnalysis(suggestion, language);
-                    }}
-                    className="px-3 py-1 bg-slate-900 border border-slate-800 rounded-full text-sm text-slate-400 hover:text-emerald-400 hover:border-emerald-500/50 transition-all"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
+
+            {!profile && !result && !loading && (
+               <div className="mt-4 flex items-center gap-2 justify-center text-amber-400 text-sm font-bold bg-amber-950/20 py-2 px-4 rounded-xl border border-amber-500/30 animate-pulse">
+                  <AlertCircle size={16} /> 
+                  Warning: Using General Mode. Create a profile for Safety Checks.
+               </div>
             )}
           </div>
         </div>
 
-        {/* Loading State */}
-        {loading && (
-          <div className="flex flex-col items-center justify-center py-20 space-y-6 animate-fade-in">
-            <div className="relative w-24 h-24">
-              <div className="absolute inset-0 border-t-4 border-emerald-500 rounded-full animate-spin"></div>
-              <div className="absolute inset-3 border-t-4 border-blue-500 rounded-full animate-spin-reverse"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Dna className="text-slate-600 animate-pulse" size={32} />
-              </div>
-            </div>
-            <div className="text-center space-y-2">
-              <h3 className="text-xl font-semibold text-white">{t.loadingTitle}</h3>
-              <p className="text-slate-400">{t.loadingSubtitle}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <div className="max-w-2xl mx-auto p-6 bg-red-950/30 border border-red-900/50 rounded-xl flex items-start gap-4 animate-fade-in">
-            <div className="p-2 bg-red-900/50 rounded-lg text-red-400">
-              <Info size={24} />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-red-200">{t.errorTitle}</h3>
-              <p className="text-red-300/80 mt-1">{error}</p>
-              <button 
-                onClick={() => { setError(null); setLoading(false); }}
-                className="mt-4 flex items-center gap-2 text-sm text-red-400 hover:text-red-300 font-medium"
-              >
-                <RotateCcw size={14} /> {t.retryBtn}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Results Section */}
+        {/* Audit Results */}
         {result && !loading && (
           <div className="animate-slide-up space-y-8">
-            <div className="flex flex-col md:flex-row justify-between items-end border-b border-slate-800 pb-6">
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4">
               <div>
-                <h2 className="text-3xl font-bold text-white">{t.resultsTitle} <span className="text-emerald-400">{result.targetDrug}</span></h2>
-                <p className="text-slate-400 mt-2">
-                   {t.foundPathways.replace('{count}', result.candidates.length.toString())}
-                </p>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">PERSONALIZED AUDIT FOR: <span className="text-emerald-400">{result.targetDrug}</span></p>
+                <h2 className="text-xl font-bold text-white">{result.profileCheckSummary}</h2>
               </div>
-              <div className="flex items-center bg-slate-900 p-1 rounded-lg border border-slate-800 mt-4 md:mt-0">
-                <button 
-                  onClick={() => setViewMode(ViewMode.GRID)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === ViewMode.GRID ? 'bg-slate-800 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                >
-                  {t.viewCards}
-                </button>
-                <button 
-                  onClick={() => setViewMode(ViewMode.CHART)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === ViewMode.CHART ? 'bg-slate-800 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                >
-                  {t.viewChart}
-                </button>
+              <div className="flex gap-2">
+                 <button onClick={() => setViewMode(ViewMode.GRID)} className={`px-4 py-2 rounded-xl font-bold text-xs ${viewMode === ViewMode.GRID ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-400'}`}>GRID</button>
+                 <button onClick={() => setViewMode(ViewMode.CHART)} className={`px-4 py-2 rounded-xl font-bold text-xs ${viewMode === ViewMode.CHART ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-400'}`}>RISK MAP</button>
               </div>
             </div>
 
-            {viewMode === ViewMode.CHART && (
-              <div className="animate-fade-in">
-                <ComparisonChart candidates={result.candidates} language={language} />
+            {viewMode === ViewMode.CHART ? (
+              <ComparisonChart candidates={result.candidates} language={language} />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {result.candidates.map((c, i) => (
+                  <DrugCard key={i} candidate={c} language={language} />
+                ))}
               </div>
             )}
-
-            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6 ${viewMode === ViewMode.CHART ? 'mt-8' : ''}`}>
-              {result.candidates.map((candidate, idx) => (
-                <DrugCard 
-                  key={idx} 
-                  candidate={candidate} 
-                  isBestOption={idx === bestCandidateIndex && candidate.type !== 'Original'} 
-                  language={language}
-                />
-              ))}
-            </div>
-
-            <div className="mt-12 p-6 bg-slate-900/50 border border-slate-800 rounded-xl text-center">
-              <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-2">{t.disclaimerTitle}</p>
-              <p className="text-slate-400 text-sm max-w-3xl mx-auto">
-                {t.disclaimerText}
-              </p>
-            </div>
           </div>
+        )}
+
+        {loading && (
+           <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
+              <div className="w-20 h-20 border-t-4 border-emerald-500 rounded-full animate-spin mb-4" />
+              <p className="text-slate-400 font-bold uppercase tracking-widest animate-pulse">Cross-referencing medical database...</p>
+           </div>
         )}
       </main>
     </div>
